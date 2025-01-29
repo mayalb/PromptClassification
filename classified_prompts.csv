@@ -1,0 +1,26 @@
+Prompt,Label,Confidence
+"Generate 10 examples of code that write a function in Python: change_base returns a string representation of the 
+input number x after changing its numerical base to base, where base is less than 10.",Fully Detailed and Clear,0.4494996666908264
+"Generate 10 programs in Python: change_base(x, base),x is a number and base number should be less then 10,   
+returns a string representation of the input x after changing its numerical base to base.",Clear but Missing Details,0.4964927136898041
+"Generate 10 examples of implementations in Python for this function: def change_base(x, base): change numerical 
+base of input number x to base. return string representation after the conversion. base numbers are less than 10.",Fully Detailed and Clear,0.4380817115306854
+"Generate 10 examples implemetations of pythonfor this function: def change_base(x, base): change numerical base
+ of input number x to base by  iteratively calculate the digits of x in the specified base and then concatenate the digits
+ to get the result string. return string representation after the conversion. base numbers are less than 10.",Clear but Missing Details,0.45304441452026367
+"Generate 10 examples implemetations of python for this function: def change_base(x, base): change numerical base
+ of input number x to base ( base < 10) by iteratively calculate the digits of x in the specified base and then
+ concatenate the digits to get the result string. return string representation after the conversion.",Clear but Missing Details,0.48500317335128784
+"Generate 10 examples implemetations of python for this function: change_base(x, base): change numerical base of 
+ input number x to base ( base must be less than 10). return string representation of x after the conversion.",Clear but Missing Details,0.47084975242614746
+nan,Clear but Missing Details,0.5477499961853027
+"Generate 10 examples implemetations of python for this function: change_base(x, base): return input number x 
+after changing its numerical base to base (base must be less than 10).",Fully Detailed and Clear,0.44877755641937256
+"Generate 10 examples implemetations of python for this function: change_base(x, base): return input number x after 
+changing its numerical base to base (base is number: 2 < base < 10).",Clear but Missing Details,0.4466313421726227
+"Generate 10 unique Python implementations of the function change_base(x, base), which converts a number x from 
+its current numerical base to a new base. The new base must be less than 10. the function should Return the string representation of x in the new base.",Fully Detailed and Clear,0.508745551109314
+"Generate 10 unique Python implementations of the function change_base(x, base), which converts  numerical base of x  to  base.  base must be less than 10. the function should Return the string representation of x in the new base.",Fully Detailed and Clear,0.43553245067596436
+"Generate 10 examples implemetations of python for this function: change_base(x, base): change numerical base of 
+  x to base. base must be less than 10. return string representation of x after the conversion.",Fully Detailed and Clear,0.4367715120315552
+"Generate 10 unique Python implementations of the function change_base(x, base). Input base must be less than 10. The output should be converted to string",Clear but Missing Details,0.6043440103530884
