@@ -235,10 +235,66 @@ What should be the value of `change_base(x = {x}, base = {base})`? Choose the co
     prompt += """
 ## Explanation:
 Please explain your choice step by step and provide your final answer.
+## Return:
+Please return the result like this: My final answer is: Option x.
 """
     return prompt
 
+import re
 
+def extract_final_answer(llm_response):
+    """
+    Extracts the final answer in the format 'Option X' from the LLM response.
+    """
+    match = re.search(r"My final answer is: Option (\d+)", llm_response)
+    if match:
+        return f"Option {match.group(1)}"
+    return None  # Return None if no valid match is found
+
+# def extract_final_answer(llama_response):
+#     if not llama_response:  # Handle None or empty response
+#         return None  
+
+#     # Match patterns like "Option 1: 33" and extract only the number
+#     match = re.search(r'Option\s*\d+:\s*([\d.]+)', llama_response)
+#     if match:
+#         return match.group(1).strip()  # Extract only the number (e.g., "33")
+
+#     # If "Option X:" is not present, try other patterns
+#     patterns = [
+#         r'Final Answer:\s*(?:The final answer is\s*)?([^\.\n]+)',
+#         r'The final answer is:\s*([^\.\n]+)',
+#         r'The correct answer is:\s*([^\.\n]+)',
+#         r'So, the correct answer is\s*([^\.\n]+)',
+#         r'The correct output is:\s*([^\.\n]+)',
+#         r'The correct choice is:\s*([^\.\n]+)',
+#         r'I would select:\s*([^\.\n]+)',
+#         r'I would choose:\s*([^\.\n]+)',
+#         r'The correct option should be:\s*([^\.\n]+)',
+#         r'My answer is:\s*([^\.\n]+)',
+#         r'Our final answer is:\s*([^\.\n]+)',
+#         r'My final answer is:\s*([^\.\n]+)'
+#     ]
+
+#     for pattern in patterns:
+#         match = re.search(pattern, llama_response, re.IGNORECASE)
+#         if match:
+#             return match.group(1).strip()  # Extract and return clean answer
+
+#     return None  # If no match found, return None
+
+def compare_with_correct_output(outputs, correct_output):
+    # Debugging: Print outputs and correct_output to check if they're in the expected format
+    st.write(f"Outputs: {outputs}")
+    st.write(f"Correct Output: {correct_output}")
+
+    matching_functions = []
+    for i, output in enumerate(outputs, start=1):
+        # Clean both output and correct_output before comparing
+        if str(output).strip().lower() == str(correct_output).strip().lower():  # Allow case-insensitive comparison
+            matching_functions.append(f"Function S{i}")
+
+    return matching_functions
 # --- Streamlit Interface ---
 st.title("Dynamic Function Generation and Clustering")
 
@@ -316,10 +372,6 @@ with tab2:
 # --- Tab 3: Analyze Functions ---
 import traceback
 
-import traceback
-
-import traceback
-
 with tab3:
     # Check if generated functions exist in session state
     if 'final_generated_functions' in st.session_state:
@@ -334,64 +386,134 @@ with tab3:
                 func(*test_input)  # Run the function with the test input
                 valid_functions.append(func)  # If no error occurs, add to valid list
             except Exception as e:
-                # If an error occurs, log it and skip this function
                 st.write(f"Invalid function {func} due to error: {e}")
-                st.write(traceback.format_exc())  # Optionally display the full traceback
 
-        # Ensure there are valid functions for further analysis
         if not valid_functions:
             st.error("No valid functions found. Please check the generated functions.")
         else:
             # Proceed with the analysis
+            tests = 10  # Set the number of automated tests
+            correct_matches = 0  # Track correct matches
             num_tests = st.sidebar.slider("Number of Tests", 1, 200, 50)
 
             if st.button("Run Analysis"):
+                st.session_state.run_analysis = True  # Store in session state to persist
+
+            if st.session_state.get("run_analysis", False):  # Check if analysis was run
                 st.write("Running analysis...")
+                for test in range(tests):
+                    # Perform the analysis with only valid functions
+                    st.write(f"### Running Test {test + 1}/{tests}")
+                    distinguishing_inputs, input_entropies, best_inputs, highest_entropy, best_clusters = find_distinguishing_inputs_and_clusters_with_entropy(num_tests, valid_functions)
 
-                # Perform the analysis with only valid functions
-                distinguishing_inputs, input_entropies, best_inputs, highest_entropy, best_clusters = find_distinguishing_inputs_and_clusters_with_entropy(num_tests, valid_functions)
+                    # Display Distinguishing Inputs
+                    st.write("### Best Distinguishing Input (Highest Entropy)")
+                    if best_inputs:
+                        if isinstance(best_inputs, list) and all(isinstance(item, tuple) and len(item) == 2 for item in best_inputs):
+                            st.write(f"Highest Entropy: {highest_entropy:.4f}")
+                            for i, (x, base) in enumerate(best_inputs, start=1):
+                                st.write(f"- Selected Input {i}: x = {x}, base = {base}")
 
-                # Debugging: Print best_inputs to check its structure
-                # st.write("Debugging: Best Inputs")
-                # st.write(best_inputs)  # Print best_inputs to debug
+                        # Calculate outputs for all functions using the selected input
+                        outputs = [func(x, base) if func else None for func in valid_functions]
+                        st.write("### Outputs for All Functions")
+                        for i, output in enumerate(outputs, start=1):
+                            st.write(f"Function S{i}: {output}")
 
-                # Display Distinguishing Inputs
-                st.write("### Best Distinguishing Input (Highest Entropy)")
-                if best_inputs:
-                    # Check if best_inputs is a list of tuples (x, base)
-                    if isinstance(best_inputs, list) and all(isinstance(item, tuple) and len(item) == 2 for item in best_inputs):
-                        st.write(f"Highest Entropy: {highest_entropy:.4f}")
-                        for i, (x, base) in enumerate(best_inputs, start=1):
-                            st.write(f"- Selected Input {i}: x = {x}, base = {base}")
+                        # Cluster functions based on equivalence
+                        clusters = compare_function_equivalence(outputs)
+                        st.write("### Function Clusters (Equivalence)")
+                        for cluster_num, cluster in enumerate(clusters, start=1):
+                            st.write(f"Cluster {cluster_num}: Functions {', '.join([f'S{i+1}' for i in cluster])}")
+
+                        # --- Allow User to Select Correct Cluster ---
+                        if test==0:
+
+                            st.write("### Select the Correct Cluster")
+
+                            # Create dropdown options based on identified clusters
+                            cluster_options = [f"Cluster {i+1}" for i in range(len(clusters))]
+
+                            # Maintain user selection in session state
+                            if "correct_cluster" not in st.session_state:
+                                st.session_state.correct_cluster = cluster_options[0]  # Default to first cluster
+
+                            # Dropdown for selecting the correct cluster
+                            selected_cluster = st.selectbox("Select the correct cluster:", cluster_options, index=cluster_options.index(st.session_state.correct_cluster))
+
+                            if st.button("Confirm Selection"):
+                                st.session_state.cluster_selected = True  # Store selection flag
+                                st.session_state.correct_cluster = selected_cluster  # Save selected cluster
+
+                        if st.session_state.get("cluster_selected", False):
+                            st.write(f"✅ You selected: {st.session_state.correct_cluster}")
+
+                            # Generate and send LLaMA prompt
+                            llama_prompt = generate_llama_prompt(x, base, clusters, outputs)
+                            # st.write("### Prompt")
+                            # st.code(llama_prompt)
+
+                            # Get LLaMA response
+                            correct_output = llama_choose_correct_output(llama_prompt)
+                            # st.write("### LLaMA Selected Output")
+                            # st.write(correct_output)
+
+                            # --- Treatment: Map Selected Output to Functions and Clusters ---
+                            st.write("### Treatment: Mapping Selected Output to Functions and Clusters")
+
+                            if correct_output is None:
+                                correct_output = ""
+                            correct_output = extract_final_answer(correct_output)
+                            if not correct_output or not correct_output.split():
+                                st.error("⚠️ Could not extract a valid answer from LLaMA's response.")
+                                correct_output = None
+                            else:
+                                try:
+                                    option_number = int(correct_output.split()[-1])  # Get the number after "Option"
+                                    correct_output = list(set(outputs))[option_number - 1]  # Get corresponding value
+                                except (ValueError, IndexError):
+                                    st.write("Error: Unable to determine the correct output from LLaMA's response.")
+                                    correct_output = None
+
+                            matching_functions = compare_with_correct_output(outputs, correct_output)
+                            st.write(f"Matching Functions: {matching_functions}")
+
+                            # Identify clusters that contain matching functions
+                            llm_selected_cluster = []
+                            for cluster_num, cluster in enumerate(clusters, start=1):
+                                for func_index in cluster:
+                                    if outputs[func_index] == correct_output:
+                                        llm_selected_cluster.append(f"Cluster {cluster_num}")
+                                        break  
+
+                            # Display the results
+                            st.write("#### Functions Matching the Selected Output:")
+                            st.write(", ".join(matching_functions) if matching_functions else "No functions match the selected output.")
+                            st.write("#### Clusters Containing Matching Functions:")
+                            st.write(", ".join(llm_selected_cluster) if llm_selected_cluster else "No clusters contain functions that match the selected output.")
+                            st.write("### Comparison of User Selection and LLM Prediction")
+                            if "selected_cluster" not in st.session_state:
+                              st.session_state.selected_cluster = None
+                            if llm_selected_cluster:
+                                st.write(f"🤖 LLM Selected Cluster: {llm_selected_cluster}")
+                                st.write(f"👤 User Selected Cluster: {st.session_state.correct_cluster}")
+
+
+                                if st.session_state.correct_cluster in llm_selected_cluster:
+                                    st.success("✅ The LLM's choice matches your selection!")
+                                    correct_matches += 1
+                                else:
+                                    st.error("❌ The LLM's choice is different from your selection.")
+                            else:
+                                st.write("⚠️ LLM did not select a valid cluster.")
+
                     else:
-                        st.write("Error: best_inputs is not a list of tuples (x, base)")
-
-                    # Calculate outputs for all functions using the selected input
-                    outputs = [func(x, base) if func else None for func in valid_functions]  # Only use valid functions here
-                    st.write("### Outputs for All Functions")
-                    for i, output in enumerate(outputs, start=1):
-                        st.write(f"Function S{i}: {output}")
-
-                    # Cluster functions based on equivalence
-                    clusters = compare_function_equivalence(outputs)
-                    st.write("### Function Clusters (Equivalence)")
-                    for cluster_num, cluster in enumerate(clusters, start=1):
-                        st.write(f"Cluster {cluster_num}: Functions {', '.join([f'S{i+1}' for i in cluster])}")
-
-                    # Generate and send LLaMA prompt
-                    llama_prompt = generate_llama_prompt(x, base, clusters, outputs)
-                    st.write("### Prompt")
-                    st.code(llama_prompt)
-
-                    # Get LLaMA response
-                    correct_output = llama_choose_correct_output(llama_prompt)
-                    st.write("### LLaMA Selected Output")
-                    st.write(correct_output)
-
-                else:
-                    st.write("No distinguishing input with high entropy found.")
+                        st.write("No distinguishing input with high entropy found.")
+            accuracy = (correct_matches / tests) * 100
+            st.write(f"### Final Accuracy: {accuracy:.2f}% ({correct_matches}/{tests} correct matches)")
     else:
         st.info("Please generate functions first in the Generate Functions tab.")
+
 with tab4:
     
     st.title("Clustering Evaluation: Number of Clusters vs. Test Results")
